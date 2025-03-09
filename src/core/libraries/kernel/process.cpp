@@ -43,19 +43,29 @@ s32 PS4_SYSV_ABI sceKernelLoadStartModule(const char* moduleFileName, u64 args, 
     std::filesystem::path path;
     std::string guest_path(moduleFileName);
 
-    const bool is_root = guest_path[0] == '/';
-    if (is_root || guest_path.contains('/')) {
-        path = mnt->GetHostPath(guest_path);
-    } else if (!guest_path.contains('/')) {
-        path = mnt->GetHostPath("/app0/" + guest_path);
-    }
+    s32 handle = -1;
 
-    if (const s32 handle = linker->LoadAndStartModule(path, args, argp, pRes); handle != -1) {
-        return handle;
-    }
+    if (guest_path[0] == '/') {
+     //try load /system/common/lib/ +path
+     //try load /system/priv/lib/   +path
+     path = mnt->GetHostPath(guest_path);
+     handle = linker->LoadAndStartModule(path, args, argp, pRes);
+     if (handle != -1) return handle;
+    } else {
 
-    if (is_root) {
-        UNREACHABLE();
+     if (!guest_path.contains('/')) {
+      path = mnt->GetHostPath("/app0/" + guest_path);
+      handle = linker->LoadAndStartModule(path, args, argp, pRes);
+      if (handle != -1) return handle;
+      //if ((flags & 0x10000) != 0)
+      // try load /system/priv/lib/   +basename
+      // try load /system/common/lib/ +basename  
+     } else {
+      path = mnt->GetHostPath(guest_path);
+      handle = linker->LoadAndStartModule(path, args, argp, pRes);
+      if (handle != -1) return handle;
+     }
+
     }
 
     return ORBIS_KERNEL_ERROR_ENOENT;
